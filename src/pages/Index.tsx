@@ -218,7 +218,12 @@ export default function Index() {
     if (!computedNorm || !computedWeighted || !computedIdeal || !computedSep || !computedScores || !computedRanks) return;
     exportToExcel({
       alternatives: alternativeNames.slice(0, numAlternatives),
-      criteria: criteria.slice(0, numCriteria).map(c => ({ name: c.name, type: c.type })),
+      criteria: criteria.slice(0, numCriteria).map(c => ({
+        name: c.name,
+        type: c.type,
+        hasLinguisticScale: c.hasLinguisticScale,
+        linguisticScale: c.linguisticScale,
+      })),
       weights,
       rawMatrix,
       normalizedMatrix: computedNorm.normalized,

@@ -15,19 +15,17 @@ interface Props {
   numCriteria: number;
   alternativeNames: string[];
   criteria: CriterionSetup[];
-  weightMethod: 'direct' | 'rank';
   onUpdate: (data: {
     numAlternatives: number;
     numCriteria: number;
     alternativeNames: string[];
     criteria: CriterionSetup[];
-    weightMethod: 'direct' | 'rank';
   }) => void;
   errors: Record<string, string>;
 }
 
 export default function Step1Setup({
-  numAlternatives, numCriteria, alternativeNames, criteria, weightMethod, onUpdate, errors,
+  numAlternatives, numCriteria, alternativeNames, criteria, onUpdate, errors,
 }: Props) {
   const setNum = (key: 'numAlternatives' | 'numCriteria', val: number) => {
     const clamped = key === 'numAlternatives'
@@ -40,24 +38,24 @@ export default function Step1Setup({
     if (key === 'numAlternatives') {
       while (newAlts.length < clamped) newAlts.push(`Alternative ${newAlts.length + 1}`);
       newAlts.length = clamped;
-      onUpdate({ numAlternatives: clamped, numCriteria, alternativeNames: newAlts, criteria: newCriteria, weightMethod });
+      onUpdate({ numAlternatives: clamped, numCriteria, alternativeNames: newAlts, criteria: newCriteria });
     } else {
       while (newCriteria.length < clamped)
         newCriteria.push({ name: `Criterion ${newCriteria.length + 1}`, type: 'benefit', hasLinguisticScale: false, linguisticScale: [] });
       newCriteria.length = clamped;
-      onUpdate({ numAlternatives, numCriteria: clamped, alternativeNames, criteria: newCriteria, weightMethod });
+      onUpdate({ numAlternatives, numCriteria: clamped, alternativeNames, criteria: newCriteria });
     }
   };
 
   const updateAlt = (i: number, name: string) => {
     const next = [...alternativeNames];
     next[i] = name;
-    onUpdate({ numAlternatives, numCriteria, alternativeNames: next, criteria, weightMethod });
+    onUpdate({ numAlternatives, numCriteria, alternativeNames: next, criteria });
   };
 
   const updateCriterion = (i: number, patch: Partial<CriterionSetup>) => {
     const next = criteria.map((c, idx) => idx === i ? { ...c, ...patch } : c);
-    onUpdate({ numAlternatives, numCriteria, alternativeNames, criteria: next, weightMethod });
+    onUpdate({ numAlternatives, numCriteria, alternativeNames, criteria: next });
   };
 
   const addScaleEntry = (i: number) => {
@@ -97,26 +95,6 @@ export default function Step1Setup({
             onChange={e => setNum('numCriteria', parseInt(e.target.value) || 2)}
           />
           {errors.numCriteria && <p className="text-sm text-destructive mt-1">{errors.numCriteria}</p>}
-        </div>
-      </div>
-
-      {/* Weight method */}
-      <div>
-        <Label>Weight Assignment Method</Label>
-        <div className="flex gap-2 mt-2">
-          {(['direct', 'rank'] as const).map(m => (
-            <button
-              key={m}
-              onClick={() => onUpdate({ numAlternatives, numCriteria, alternativeNames, criteria, weightMethod: m })}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                weightMethod === m
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {m === 'direct' ? 'Direct Weights' : 'Rank-based'}
-            </button>
-          ))}
         </div>
       </div>
 

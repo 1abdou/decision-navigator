@@ -15,16 +15,14 @@ export interface TopsisState {
   numCriteria: number;
   alternativeNames: string[];
   criteria: CriterionSetup[];
-  weightMethod: 'direct' | 'rank';
 
   // Step 2
   matrixInputs: string[][];  // raw string inputs (or linguistic labels)
   rawMatrix: number[][];     // numeric matrix
 
-  // Step 3
-  directWeights: number[];
-  ranks: number[];           // for rank-based
-  weights: number[];         // final computed weights
+  // Step 3 (priority level per criterion 1..N, weights from rank-sum)
+  ranks: number[];
+  weights: number[];
 
   // Computed results (steps 4-8)
   normalizedMatrix: number[][];

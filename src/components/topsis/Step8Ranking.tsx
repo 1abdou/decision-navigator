@@ -3,9 +3,8 @@
 // ============================================================
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { Download, Trophy, Medal, Award, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Trophy, Medal, Award, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface Props {
   alternatives: string[];
@@ -13,7 +12,6 @@ interface Props {
   sMinus: number[];
   scores: number[];
   ranks: number[];
-  onExport: () => void;
 }
 
 const PODIUM_STYLES = [
@@ -28,7 +26,7 @@ function scoreColor(score: number): string {
   return '#DC2626';
 }
 
-export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, ranks, onExport }: Props) {
+export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, ranks }: Props) {
   const sorted = alternatives
     .map((alt, i) => ({ alt, sp: sPlus[i], sm: sMinus[i], score: scores[i], rank: ranks[i] }))
     .sort((a, b) => a.rank - b.rank);
@@ -62,12 +60,7 @@ export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, rank
       {/* Full ranking table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            Full Ranking
-            <Button onClick={onExport} size="sm">
-              <Download size={16} className="mr-1" /> Export to Excel
-            </Button>
-          </CardTitle>
+          <CardTitle className="text-lg">Full Ranking</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>

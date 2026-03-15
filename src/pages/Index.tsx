@@ -1,37 +1,28 @@
 // ============================================================
 // TOPSIS Decision-Making Tool — Main Page
-// Full stepper with state management for all 8 steps
+// 4-step flow: Setup, Matrix, Weights, Ranking (intermediate steps computed under the hood)
 // ============================================================
 import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   ChevronRight, ChevronLeft, CheckCircle2, Settings, Table as TableIcon,
-  Weight, Grid3X3, Layers, Target, GitFork, Trophy, Download,
+  Weight, Trophy,
 } from 'lucide-react';
 import Step1Setup from '@/components/topsis/Step1Setup';
 import Step2Matrix from '@/components/topsis/Step2Matrix';
 import Step3Weights from '@/components/topsis/Step3Weights';
-import Step4Normalized from '@/components/topsis/Step4Normalized';
-import Step5Weighted from '@/components/topsis/Step5Weighted';
-import Step6Ideal from '@/components/topsis/Step6Ideal';
-import Step7Separation from '@/components/topsis/Step7Separation';
 import Step8Ranking from '@/components/topsis/Step8Ranking';
 import {
   normalize, applyWeights, idealSolutions, separationDistances,
-  topsisScore, rankDescending, rankSumWeights, normalizeWeights,
+  topsisScore, rankDescending, rankSumWeights,
   checkZeroColumns,
 } from '@/lib/topsis';
-import { exportToExcel } from '@/lib/exportExcel';
 import type { CriterionSetup } from '@/lib/topsisTypes';
 
 const STEPS = [
   { label: 'Setup', icon: Settings },
   { label: 'Matrix', icon: TableIcon },
   { label: 'Weights', icon: Weight },
-  { label: 'Normalized', icon: Grid3X3 },
-  { label: 'Weighted', icon: Layers },
-  { label: 'Ideal', icon: Target },
-  { label: 'Distances', icon: GitFork },
   { label: 'Ranking', icon: Trophy },
 ];
 
@@ -52,13 +43,10 @@ export default function Index() {
       hasLinguisticScale: false, linguisticScale: [],
     }))
   );
-  const [weightMethod, setWeightMethod] = useState<'direct' | 'rank'>('direct');
-
   // Step 2 state
   const [matrixInputs, setMatrixInputs] = useState<string[][]>([]);
 
-  // Step 3 state
-  const [directWeights, setDirectWeights] = useState<number[]>([]);
+  // Step 3 state (priority level per criterion, 1..N)
   const [rankValues, setRankValues] = useState<number[]>([]);
 
   // Computed results
@@ -89,15 +77,11 @@ export default function Index() {
     return m;
   }, [matrixInputs, numAlternatives, numCriteria, criteria]);
 
-  // Weights
+  // Weights (always rank-based from priority levels)
   const weights = useMemo(() => {
-    if (weightMethod === 'rank') {
-      return rankSumWeights(rankValues.length === numCriteria ? rankValues : Array.from({ length: numCriteria }, (_, i) => i + 1));
-    }
-    const dw = directWeights.length === numCriteria ? directWeights : Array(numCriteria).fill(1 / numCriteria);
-    const sum = dw.reduce((a, b) => a + b, 0);
-    return sum === 0 ? dw.map(() => 1 / numCriteria) : dw.map(w => w / sum);
-  }, [weightMethod, directWeights, rankValues, numCriteria]);
+    const ranks = rankValues.length === numCriteria ? rankValues : Array.from({ length: numCriteria }, (_, i) => i + 1);
+    return rankSumWeights(ranks);
+  }, [rankValues, numCriteria]);
 
   // Initialize matrix inputs when moving from step 0 to step 1
   const initMatrix = useCallback(() => {
@@ -115,13 +99,10 @@ export default function Index() {
   }, [numAlternatives, numCriteria]);
 
   const initWeights = useCallback(() => {
-    if (directWeights.length !== numCriteria) {
-      setDirectWeights(Array(numCriteria).fill(+(1 / numCriteria).toFixed(4)));
-    }
     if (rankValues.length !== numCriteria) {
-      setRankValues(Array.from({ length: numCriteria }, (_, i) => i + 1));
+      setRankValues(Array.from({ length: numCriteria }, () => 1));
     }
-  }, [numCriteria, directWeights.length, rankValues.length]);
+  }, [numCriteria, rankValues.length]);
 
   // Validation per step
   const validateStep = (s: number): boolean => {
@@ -149,56 +130,44 @@ export default function Index() {
     }
 
     if (s === 2) {
-      if (weightMethod === 'direct') {
-        const sum = directWeights.reduce((a, b) => a + b, 0);
-        if (directWeights.some(w => w < 0)) errs.weights = 'Weights must be non-negative';
-        if (sum === 0) errs.weights = 'Weights cannot all be zero';
-      }
+      // No validation needed: every criterion has a level 1..N by construction
     }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const computeStep = (s: number) => {
-    if (s === 3) {
-      // Check zero columns
-      const zeroCols = checkZeroColumns(rawMatrix);
-      if (zeroCols.length > 0) {
-        setErrors({ general: `Column(s) ${zeroCols.map(c => criteria[c]?.name).join(', ')} are all zeros — cannot normalize.` });
-        return false;
-      }
-      const result = normalize(rawMatrix);
-      setComputedNorm(result);
+  const computeAllThroughRanking = (): boolean => {
+    const zeroCols = checkZeroColumns(rawMatrix);
+    if (zeroCols.length > 0) {
+      setErrors({ general: `Column(s) ${zeroCols.map(c => criteria[c]?.name).join(', ')} are all zeros — cannot normalize.` });
+      return false;
     }
-    if (s === 4) {
-      setComputedWeighted(applyWeights(computedNorm!.normalized, weights));
-    }
-    if (s === 5) {
-      const types = criteria.slice(0, numCriteria).map(c => c.type);
-      setComputedIdeal(idealSolutions(computedWeighted!, types));
-    }
-    if (s === 6) {
-      setComputedSep(separationDistances(computedWeighted!, computedIdeal!.idealBest, computedIdeal!.idealWorst));
-    }
-    if (s === 7) {
-      const sc = topsisScore(computedSep!.sPlus, computedSep!.sMinus);
-      setComputedScores(sc);
-      setComputedRanks(rankDescending(sc));
-    }
+    const norm = normalize(rawMatrix);
+    const weighted = applyWeights(norm.normalized, weights);
+    const types = criteria.slice(0, numCriteria).map(c => c.type);
+    const ideal = idealSolutions(weighted, types);
+    const sep = separationDistances(weighted, ideal.idealBest, ideal.idealWorst);
+    const scores = topsisScore(sep.sPlus, sep.sMinus);
+    const ranks = rankDescending(scores);
+
+    setComputedNorm(norm);
+    setComputedWeighted(weighted);
+    setComputedIdeal(ideal);
+    setComputedSep(sep);
+    setComputedScores(scores);
+    setComputedRanks(ranks);
     return true;
   };
 
   const goNext = () => {
     if (!validateStep(step)) return;
 
-    // Init next step data
     if (step === 0) initMatrix();
     if (step === 1) initWeights();
 
-    // Compute results for display steps
-    if (step >= 2) {
-      if (!computeStep(step + 1)) return;
+    if (step === 2) {
+      if (!computeAllThroughRanking()) return;
     }
 
     const next = step + 1;
@@ -212,30 +181,6 @@ export default function Index() {
       setStep(step - 1);
       setErrors({});
     }
-  };
-
-  const handleExport = () => {
-    if (!computedNorm || !computedWeighted || !computedIdeal || !computedSep || !computedScores || !computedRanks) return;
-    exportToExcel({
-      alternatives: alternativeNames.slice(0, numAlternatives),
-      criteria: criteria.slice(0, numCriteria).map(c => ({
-        name: c.name,
-        type: c.type,
-        hasLinguisticScale: c.hasLinguisticScale,
-        linguisticScale: c.linguisticScale,
-      })),
-      weights,
-      rawMatrix,
-      normalizedMatrix: computedNorm.normalized,
-      norms: computedNorm.norms,
-      weightedMatrix: computedWeighted,
-      idealBest: computedIdeal.idealBest,
-      idealWorst: computedIdeal.idealWorst,
-      sPlus: computedSep.sPlus,
-      sMinus: computedSep.sMinus,
-      scores: computedScores,
-      ranks: computedRanks,
-    });
   };
 
   const alts = alternativeNames.slice(0, numAlternatives);
@@ -274,18 +219,6 @@ export default function Index() {
             </button>
           );
         })}
-
-        {/* Export button visible after step 4 */}
-        {maxStep >= 4 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-auto"
-            onClick={handleExport}
-          >
-            <Download size={16} className="mr-1" /> Export Excel
-          </Button>
-        )}
       </aside>
 
       {/* Mobile top stepper */}
@@ -324,13 +257,11 @@ export default function Index() {
           <Step1Setup
             numAlternatives={numAlternatives} numCriteria={numCriteria}
             alternativeNames={alternativeNames} criteria={criteria}
-            weightMethod={weightMethod}
             onUpdate={d => {
               setNumAlternatives(d.numAlternatives);
               setNumCriteria(d.numCriteria);
               setAlternativeNames(d.alternativeNames);
               setCriteria(d.criteria);
-              setWeightMethod(d.weightMethod);
             }}
             errors={errors}
           />
@@ -355,63 +286,27 @@ export default function Index() {
 
         {step === 2 && (
           <Step3Weights
-            criteria={crits} weightMethod={weightMethod}
-            directWeights={directWeights} ranks={rankValues}
+            criteria={crits}
+            ranks={rankValues}
             weights={weights}
-            onUpdateDirectWeight={(i, val) => {
-              setDirectWeights(prev => { const n = [...prev]; n[i] = val; return n; });
-            }}
-            onNormalize={() => setDirectWeights(normalizeWeights(directWeights))}
-            onSwapRanks={(a, b) => {
+            onSetCriterionLevel={(i, level) => {
               setRankValues(prev => {
-                const n = [...prev];
-                [n[a], n[b]] = [n[b], n[a]];
-                return n;
+                const next = [...prev];
+                next[i] = level;
+                return next;
               });
             }}
             errors={errors}
           />
         )}
 
-        {step === 3 && computedNorm && (
-          <Step4Normalized
-            alternatives={alts} criteriaNames={critNames}
-            normalizedMatrix={computedNorm.normalized} norms={computedNorm.norms}
-          />
-        )}
-
-        {step === 4 && computedWeighted && (
-          <Step5Weighted
-            alternatives={alts} criteriaNames={critNames}
-            weightedMatrix={computedWeighted}
-          />
-        )}
-
-        {step === 5 && computedIdeal && (
-          <Step6Ideal
-            criteriaNames={critNames}
-            types={crits.map(c => c.type)}
-            idealBest={computedIdeal.idealBest}
-            idealWorst={computedIdeal.idealWorst}
-          />
-        )}
-
-        {step === 6 && computedSep && (
-          <Step7Separation
-            alternatives={alts}
-            sPlus={computedSep.sPlus}
-            sMinus={computedSep.sMinus}
-          />
-        )}
-
-        {step === 7 && computedScores && computedRanks && computedSep && (
+        {step === 3 && computedScores && computedRanks && computedSep && (
           <Step8Ranking
             alternatives={alts}
             sPlus={computedSep.sPlus}
             sMinus={computedSep.sMinus}
             scores={computedScores}
             ranks={computedRanks}
-            onExport={handleExport}
           />
         )}
 

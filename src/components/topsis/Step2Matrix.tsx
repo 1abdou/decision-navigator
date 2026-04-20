@@ -183,7 +183,7 @@ export default function Step2Matrix({ alternatives, criteria, matrixInputs, onUp
                       <div className="flex items-center gap-1 justify-center w-full">
                         <span className="truncate max-w-[100px]">{c.name}</span>
                         <span className={`text-xs flex-shrink-0 ${c.type === 'benefit' ? 'text-emerald-600' : 'text-red-500'}`}>
-                          ({c.type === 'benefit' ? '+' : '−'})
+                          ({c.type === 'benefit' ? '+' : '−'}){c.isPercentage ? ' %' : ''}
                         </span>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -230,16 +230,21 @@ export default function Step2Matrix({ alternatives, criteria, matrixInputs, onUp
                               </SelectContent>
                             </Select>
                           ) : (
-                            <Input
-                              id={`cell-${i}-${j}`}
-                              type="number"
-                              className={`w-28 mx-auto text-center ${isErr ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                              value={matrixInputs[i]?.[j] || ''}
-                              onChange={e => onUpdateCell(i, j, e.target.value)}
-                              onKeyDown={e => handleKeyDown(e, i, j)}
-                              onPaste={e => handlePaste(e, i, j)}
-                              placeholder="0"
-                            />
+                            <div className="relative w-28 mx-auto">
+                              <Input
+                                id={`cell-${i}-${j}`}
+                                type="number"
+                                className={`w-full text-center ${c.isPercentage ? 'pr-6 pl-2' : ''} ${isErr ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                                value={matrixInputs[i]?.[j] || ''}
+                                onChange={e => onUpdateCell(i, j, e.target.value)}
+                                onKeyDown={e => handleKeyDown(e, i, j)}
+                                onPaste={e => handlePaste(e, i, j)}
+                                placeholder="0"
+                              />
+                              {c.isPercentage && (
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium pointer-events-none">%</span>
+                              )}
+                            </div>
                           )}
                           {isErr && (
                             <p className="text-xs text-destructive mt-1">{errors[`cell_${i}_${j}`]}</p>
@@ -272,7 +277,7 @@ export default function Step2Matrix({ alternatives, criteria, matrixInputs, onUp
                     <div className="flex flex-col items-center gap-1.5">
                       <span className="font-semibold truncate max-w-[120px]">{c.name}</span>
                       <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${c.type === 'benefit' ? 'text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950 dark:border-emerald-800' : 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800'}`}>
-                        {c.type}
+                        {c.type}{c.isPercentage ? ' (%)' : ''}
                       </Badge>
                       {c.hasLinguisticScale && (
                         <div className="text-[10px] text-muted-foreground mt-0.5 max-w-[120px] truncate" title={c.linguisticScale.map(l => `${l.label}(${l.value})`).join(', ')}>
@@ -290,7 +295,7 @@ export default function Step2Matrix({ alternatives, criteria, matrixInputs, onUp
                   <TableCell className="font-medium sticky left-0 z-10 bg-background shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">{alt}</TableCell>
                   {criteria.map((_, j) => (
                     <TableCell key={j} className="text-center font-mono">
-                      {isNaN(rawMatrix[i]?.[j]) ? '—' : parseFloat(rawMatrix[i][j].toFixed(4))}
+                      {isNaN(rawMatrix[i]?.[j]) ? '—' : `${parseFloat(rawMatrix[i][j].toFixed(4))}${criteria[j].isPercentage ? '%' : ''}`}
                     </TableCell>
                   ))}
                 </TableRow>

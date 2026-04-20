@@ -4,7 +4,10 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { Trophy, Medal, Award, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Trophy, Medal, Award, CheckCircle, AlertTriangle, Percent } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useState } from 'react';
 
 interface Props {
   alternatives: string[];
@@ -27,16 +30,27 @@ function scoreColor(score: number): string {
 }
 
 export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, ranks }: Props) {
+  const [showPercent, setShowPercent] = useState(false);
+
   const sorted = alternatives
     .map((alt, i) => ({ alt, sp: sPlus[i], sm: sMinus[i], score: scores[i], rank: ranks[i] }))
     .sort((a, b) => a.rank - b.rank);
 
-  const chartData = sorted.map(r => ({ name: r.alt, score: +r.score.toFixed(4) }));
+  const chartData = sorted.map(r => ({ name: r.alt, score: showPercent ? +(r.score * 100).toFixed(2) : +r.score.toFixed(4) }));
   const best = sorted[0];
   const worst = sorted[sorted.length - 1];
 
+  const formatScore = (val: number) => showPercent ? `${(val * 100).toFixed(2)}%` : val.toFixed(4);
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end items-center gap-2">
+        <Switch id="show-percent" checked={showPercent} onCheckedChange={setShowPercent} />
+        <Label htmlFor="show-percent" className="font-semibold flex items-center gap-1.5 cursor-pointer">
+          <Percent size={14} className="text-muted-foreground" /> Show as Percentage
+        </Label>
+      </div>
+
       {/* Podium */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {sorted.slice(0, 3).map((r, idx) => {
@@ -49,7 +63,7 @@ export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, rank
                 <p className="text-sm text-muted-foreground">{style.label}</p>
                 <p className="text-xl font-bold mt-1">{r.alt}</p>
                 <p className="text-2xl font-mono font-bold mt-2" style={{ color: scoreColor(r.score) }}>
-                  {r.score.toFixed(4)}
+                  {formatScore(r.score)}
                 </p>
               </CardContent>
             </Card>
@@ -82,7 +96,7 @@ export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, rank
                   <TableCell className="text-center font-mono">{r.sp.toFixed(4)}</TableCell>
                   <TableCell className="text-center font-mono">{r.sm.toFixed(4)}</TableCell>
                   <TableCell className="text-center font-mono font-bold" style={{ color: scoreColor(r.score) }}>
-                    {r.score.toFixed(4)}
+                    {formatScore(r.score)}
                   </TableCell>
                   <TableCell>
                     <div className="w-full bg-muted rounded-full h-3">
@@ -106,7 +120,7 @@ export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, rank
           <ResponsiveContainer width="100%" height={Math.max(200, sorted.length * 50)}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 80 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" domain={[0, 1]} />
+              <XAxis type="number" domain={[0, showPercent ? 100 : 1]} />
               <YAxis type="category" dataKey="name" width={70} />
               <Tooltip />
               <Bar dataKey="score" radius={[0, 4, 4, 0]}>
@@ -125,13 +139,13 @@ export default function Step8Ranking({ alternatives, sPlus, sMinus, scores, rank
           <div className="flex items-start gap-2">
             <CheckCircle className="text-emerald-600 mt-0.5" size={20} />
             <p>
-              <strong>Best:</strong> {best.alt} (score: {best.score.toFixed(4)}) — {best.alt} is the most preferred alternative across all criteria.
+              <strong>Best:</strong> {best.alt} (score: {formatScore(best.score)}) — {best.alt} is the most preferred alternative across all criteria.
             </p>
           </div>
           <div className="flex items-start gap-2">
             <AlertTriangle className="text-amber-600 mt-0.5" size={20} />
             <p>
-              <strong>Worst:</strong> {worst.alt} (score: {worst.score.toFixed(4)})
+              <strong>Worst:</strong> {worst.alt} (score: {formatScore(worst.score)})
             </p>
           </div>
         </CardContent>

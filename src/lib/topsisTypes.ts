@@ -7,6 +7,7 @@ export interface CriterionSetup {
   type: 'benefit' | 'cost';
   hasLinguisticScale: boolean;
   linguisticScale: { label: string; value: number }[];
+  isPercentage?: boolean;
 }
 
 export interface TopsisState {

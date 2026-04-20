@@ -8,6 +8,7 @@ export interface CriterionConfig {
   type: 'benefit' | 'cost';
   hasLinguisticScale: boolean;
   linguisticScale: { label: string; value: number }[];
+  isPercentage?: boolean;
 }
 
 // ---- Step 4: Vector Normalization ----

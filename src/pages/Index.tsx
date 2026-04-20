@@ -109,13 +109,27 @@ export default function Index() {
     const errs: Record<string, string> = {};
 
     if (s === 0) {
-      alternativeNames.slice(0, numAlternatives).forEach((n, i) => {
-        if (!n.trim()) errs[`alt_${i}`] = 'Name required';
+      const altNamesLower = alternativeNames.slice(0, numAlternatives).map(n => n.trim().toLowerCase());
+      const critNamesLower = criteria.slice(0, numCriteria).map(c => c.name.trim().toLowerCase());
+
+      altNamesLower.forEach((n, i) => {
+        if (!n) errs[`alt_${i}`] = 'Name required';
+        else if (altNamesLower.indexOf(n) !== i) errs[`alt_${i}`] = 'Duplicate Alternative';
       });
-      criteria.slice(0, numCriteria).forEach((c, i) => {
-        if (!c.name.trim()) errs[`crit_${i}`] = 'Name required';
-        if (c.hasLinguisticScale && c.linguisticScale.length < 2)
-          errs[`crit_${i}`] = 'Need at least 2 scale entries';
+
+      critNamesLower.forEach((n, i) => {
+        if (!n) errs[`crit_${i}`] = 'Name required';
+        else if (critNamesLower.indexOf(n) !== i) errs[`crit_${i}`] = 'Duplicate Criterion';
+        
+        const c = criteria[i];
+        if (c.hasLinguisticScale) {
+          if (c.linguisticScale.length < 2) errs[`crit_${i}_scale`] = 'At least 2 scale entries required';
+          const labels = c.linguisticScale.map(l => l.label.trim().toLowerCase());
+          labels.forEach((l, si) => {
+            if (!l) errs[`crit_${i}_scale_${si}`] = 'Label required';
+            else if (labels.indexOf(l) !== si) errs[`crit_${i}_scale_${si}`] = 'Duplicate label';
+          });
+        }
       });
     }
 
@@ -138,11 +152,6 @@ export default function Index() {
   };
 
   const computeAllThroughRanking = (): boolean => {
-    const zeroCols = checkZeroColumns(rawMatrix);
-    if (zeroCols.length > 0) {
-      setErrors({ general: `Column(s) ${zeroCols.map(c => criteria[c]?.name).join(', ')} are all zeros — cannot normalize.` });
-      return false;
-    }
     const norm = normalize(rawMatrix);
     const weighted = applyWeights(norm.normalized, weights);
     const types = criteria.slice(0, numCriteria).map(c => c.type);
@@ -278,6 +287,9 @@ export default function Index() {
                 next[i][j] = val;
                 return next;
               });
+            }}
+            onUpdateMatrix={(newInputs) => {
+              setMatrixInputs(newInputs);
             }}
             rawMatrix={rawMatrix}
             errors={errors}
